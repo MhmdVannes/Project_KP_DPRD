@@ -1,31 +1,56 @@
 <?php
+include 'session_check.php';
+
+// Cek apakah user sudah login
+if (!isset($_SESSION['id_user'])) {
+    header("Location: login.php");
+    exit();
+}
+
 // Termasuk file koneksi ke database
 include('koneksi.php');
 
-// Menangani saat form dikirimkan
+// Inisialisasi variabel untuk pesan
+$msg = '';
+$msgClass = '';
+
+// Proses form jika disubmit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Mengambil data dari form
+    // Mengambil dan membersihkan input
     $nama = mysqli_real_escape_string($conn, $_POST['nama']);
     $nip = mysqli_real_escape_string($conn, $_POST['nip']);
     $jabatan = mysqli_real_escape_string($conn, $_POST['jabatan']);
     $peran = mysqli_real_escape_string($conn, $_POST['peran']);
     $password = mysqli_real_escape_string($conn, $_POST['password']);
     
-    // Memastikan password tidak kosong dan meng-encryptnya
-    if (empty($password)) {
-        $password = "defaultpassword";  // Atau sesuaikan sesuai kebijakan
+    // Validasi input
+    if (empty($nama) || empty($nip) || empty($jabatan) || empty($password)) {
+        $msg = 'Semua field harus diisi';
+        $msgClass = 'alert-danger';
     } else {
-        $password = password_hash($password, PASSWORD_DEFAULT);  // Meng-hash password
-    }
-
-    // Menyusun query untuk menyimpan data pengguna ke dalam database
-    $sql = "INSERT INTO users (nama, nip, jabatan, peran, password) VALUES ('$nama', '$nip', '$jabatan', '$peran', '$password')";
-    
-    // Menjalankan query dan memeriksa apakah berhasil
-    if ($conn->query($sql) === TRUE) {
-        echo "<script>alert('Pengguna berhasil ditambahkan!'); window.location.href = 'manajemenpengguna.php';</script>";
-    } else {
-        echo "Error: " . $sql . "<br>" . $conn->error;
+        // Cek apakah nama sudah ada
+        $checkNama = $conn->query("SELECT * FROM tb_user WHERE nama = '$nama'");
+        if ($checkNama->num_rows > 0) {
+            $msg = 'Nama sudah digunakan';
+            $msgClass = 'alert-danger';
+        } else {
+            // Hash password
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            
+            // Menyimpan data ke database
+            $sql = "INSERT INTO tb_user (nama, nip, jabatan, peran, password) 
+                    VALUES ('$nama', '$nip', '$jabatan', '$peran', '$hashedPassword')";
+            
+            if ($conn->query($sql)) {
+                $msg = 'Pengguna berhasil ditambahkan';
+                $msgClass = 'alert-success';
+                // Redirect setelah 2 detik
+                header("refresh:2;url=manajemenpengguna.php");
+            } else {
+                $msg = 'Error: ' . $conn->error;
+                $msgClass = 'alert-danger';
+            }
+        }
     }
 }
 ?>
@@ -33,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html lang="en">
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Sekretariat Dewan Perwakilan Rakyat Daerah Provinsi Sulawesi Tenggara</title>
+    <title>Tambah Pengguna - Sekretariat DPRD Provinsi Sulawesi Tenggara</title>
     <meta
       content="width=device-width, initial-scale=1.0, shrink-to-fit=no"
       name="viewport"
@@ -48,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <script src="assets/js/plugin/webfont/webfont.min.js"></script>
     <script>
       WebFont.load({
-        google: { families: ["Public Sans:300,400,500,600,700"] },
+        google: { families: ["Public Sans:300,400,500,600,700", "Poppins:400,500,600,700"] },
         custom: {
           families: [
             "Font Awesome 5 Solid",
@@ -64,293 +89,488 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       });
     </script>
     <style>
+        :root {
+            --primary-color: #1a3c6e;
+            --primary-light: #2c5b9e;
+            --accent-color: #f9b000;
+            --text-dark: #263238;
+            --text-light: #546e7a;
+            --bg-light: #f8fafc;
+            --bg-white: #ffffff;
+            --shadow-sm: 0 2px 10px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 15px rgba(0,0,0,0.08);
+            --radius-sm: 8px;
+            --radius-md: 16px;
+        }
+
+        body {
+            font-family: 'Public Sans', 'Poppins', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        /* Main Panel Styling */
+        .main-panel {
+            margin-left: 260px;
+            background: var(--bg-light);
+            min-height: 100vh;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            width: calc(100% - 260px);
+            position: relative;
+            padding-top: 110px !important;
+        }
+
+        /* Header Styling */
+        .main-header {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 260px;
+            z-index: 999;
+            background: var(--bg-white);
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .navbar-header {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-white) !important;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .logo-header {
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo-header .logo img {
+            height: 45px;
+            width: auto;
+        }
+
+        .navbar-brand img {
+            transition: all 0.3s ease;
+            height: 55px !important;
+        }
+
+        .navbar-brand:hover img {
+            transform: scale(1.05);
+        }
+
+        .navbar-brand span {
+            font-size: 1.1rem;
+            margin-left: 1rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            line-height: 1.3;
+            transition: all 0.3s ease;
+        }
+
         .page-title {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 20px;
-}
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 1.75rem;
+            border-left: 5px solid var(--accent-color);
+            padding-left: 15px;
+        }
 
+        /* Form Styling */
+        .form-section {
+            background: var(--bg-white);
+            border-radius: var(--radius-md);
+            padding: 2.5rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 2rem;
+            border-top: 5px solid var(--primary-color);
+        }
 
+        .form-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.6rem;
+            font-size: 0.95rem;
+        }
+
+        .form-control {
+            border: 2px solid #e2e8f0;
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(26, 60, 110, 0.1);
+            background: var(--bg-white);
+        }
+
+        .form-select {
+            border: 2px solid #e2e8f0;
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(26, 60, 110, 0.1);
+            background: var(--bg-white);
+        }
+
+        /* Button Styling */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(26, 60, 110, 0.2);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            border-color: #e2e8f0;
+            color: var(--text-dark);
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e1;
+            border-color: #cbd5e1;
+            color: var(--text-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Alert Styling */
+        .alert {
+            border-radius: var(--radius-sm);
+            padding: 1rem 1.5rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            border: none;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            color: #166534;
+        }
+
+        .alert-danger {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+
+        /* Input Group Styling */
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-icon {
+            position: absolute;
+            z-index: 10;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            transition: all 0.3s ease;
+        }
+
+        .input-with-icon {
+            padding-left: 40px;
+        }
+
+        .input-with-icon:focus + .input-icon {
+            color: var(--primary-color);
+        }
+
+        /* Card Styling */
+        .card {
+            border: none;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background-color: var(--primary-color);
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+            color: white;
+            font-weight: 600;
+            border: none;
+        }
+
+        /* Form Group Hover Effect */
+        .form-group {
+            transition: all 0.3s ease;
+        }
+
+        .form-group:hover .form-label {
+            color: var(--primary-light);
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 992px) {
+            .main-panel {
+                margin-left: 0;
+                width: 100%;
+                padding-top: 100px !important;
+            }
+
+            .main-header {
+                left: 0;
+            }
+            
+            .navbar-brand span {
+                font-size: 0.9rem;
+            }
+            
+            .page-title {
+                font-size: 1.7rem;
+            }
+            
+            .form-section {
+                padding: 1.5rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .navbar-brand span {
+                font-size: 0.8rem;
+            }
+            
+            .page-title {
+                font-size: 1.5rem;
+            }
+        }
     </style>
 
     <!-- CSS Files -->
     <link rel="stylesheet" href="assets/css/bootstrap.min.css" />
     <link rel="stylesheet" href="assets/css/plugins.min.css" />
     <link rel="stylesheet" href="assets/css/kaiadmin.min.css" />
-
-    <!-- CSS Just for demo purpose, don't include it in your project -->
+    <link rel="stylesheet" href="assets/css/sidebar.css" />
     <link rel="stylesheet" href="assets/css/demo.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
   </head>
   <body>
     <div class="wrapper">
-      <!-- Sidebar -->
-      <div class="sidebar" data-background-color="dark">
-        <div class="sidebar-logo">
-          <!-- Logo Header -->
-          <div class="logo-header" data-background-color="dark">
-            <a href="index.php" class="logo">
-              <img
-                src="img/logosultra.png"
-                alt="navbar brand"
-                class="navbar-brand"
-                height="50"
-              />
-            </a>
-            <div class="nav-toggle">
-              <button class="btn btn-toggle toggle-sidebar">
-                <i class="gg-menu-right"></i>
-              </button>
-              <button class="btn btn-toggle sidenav-toggler">
-                <i class="gg-menu-left"></i>
-              </button>
-            </div>
-            <button class="topbar-toggler more">
-              <i class="gg-more-vertical-alt"></i>
-            </button>
-          </div>
-          <!-- End Logo Header -->
-        </div>
-        <div class="sidebar-wrapper scrollbar scrollbar-inner">
-          <div class="sidebar-content">
-            <ul class="nav nav-secondary">
-            <li class="nav-item">
-              <a href="index.php">
-            <i class="fas fa-home"></i>
-            <p>Dashboard</p>
-            </a>
-              </li>
-              
-              <li class="nav-item active">
-                <a href="manajemenpengguna.php">
-                  <i class="fas fa-user"></i>
-                  <p>Manajemen Pengguna</p>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a href="analisisjabatan.php">
-                  <i class="fas fa-tasks"></i>
-                  <p>Analisis Jabatan</p>
-                </a>
-              </li>
-             
-              
-            </ul>
-          </div>
-        </div>
-      </div>
-      <!-- End Sidebar -->
+      <?php include('sidebar.php'); ?>
 
       <div class="main-panel">
+        <!-- Main Header -->
         <div class="main-header">
-          <div class="main-header-logo">
-            <!-- Logo Header -->
-            <div class="logo-header" data-background-color="dark">
-              <a href="index.php" class="logo">
-                <img
-                  src="img/logosultra.png"
-                  alt="navbar brand"
-                  class="navbar-brand"
-                  height="20"
-                />
-              </a>
-              <div class="nav-toggle">
-                <button class="btn btn-toggle toggle-sidebar">
-                  <i class="gg-menu-right"></i>
-                </button>
-                <button class="btn btn-toggle sidenav-toggler">
-                  <i class="gg-menu-left"></i>
-                </button>
-              </div>
-              <button class="topbar-toggler more">
-                <i class="gg-more-vertical-alt"></i>
-              </button>
-            </div>
-            <!-- End Logo Header -->
-          </div>
-          <!-- Navbar Header -->
-           
-          <nav class="navbar navbar-header navbar-header-transparent navbar-expand-lg border-bottom">
-  <div class="container-fluid">
-    <!-- Logo dan Teks -->
-    <a class="navbar-brand d-flex align-items-center" href="#">
-      <img src="img/logosultra.png" alt="SIASN Logo" class="d-inline-block me-2" style="height: 50px; max-height: 50px;">
-      <span style="font-weight: 1000; color:rgb(3, 36, 71);">SEKRETARIAT DEWAN PERWAKILAN RAKYAT DAERAH PROVINSI SULAWESI TENGGARA</span>
-    </a>
-
-    <!-- Navbar Item -->
-    <ul class="navbar-nav ms-md-auto align-items-center">
-      <!-- Tombol Pencarian (untuk tampilan mobile) -->
-      <li class="nav-item topbar-icon dropdown hidden-caret d-flex d-lg-none">
-        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false" aria-haspopup="true">
-          <i class="fa fa-search"></i>
-        </a>
-        <ul class="dropdown-menu dropdown-search animated fadeIn">
-          <form class="navbar-left navbar-form nav-search">
-            <div class="input-group">
-              <input type="text" placeholder="Search ..." class="form-control" />
-            </div>
-          </form>
-        </ul>
-      </li>
-      
-      <!-- Profile User Dropdown -->
-      <li class="nav-item topbar-user dropdown hidden-caret">
-        <a class="dropdown-toggle profile-pic" data-bs-toggle="dropdown" href="#" aria-expanded="false">
-          <!-- Flexbox untuk menempatkan ikon avatar dan nama pengguna -->
-          <div class="d-flex align-items-center">
-            <div class="avatar-sm me-2">
-              <i class="fas fa-user-circle fa-3x"></i> <!-- Ikon pengguna -->
-            </div>
-          </div>
-        </a>
-        <!-- Dropdown menu untuk profile -->
-        <ul class="dropdown-menu dropdown-user animated fadeIn">
-  <div class="dropdown-user-scroll scrollbar-outer">
-    <!-- Informasi Akun: Nama dan NIP -->
-    <li class="dropdown-item">
-      <div class="account-info">
-        <p class="account-name fw-bold">
-          <?php 
-          if(isset($_SESSION['nama'])) {
-            echo $_SESSION['nama']; // Menampilkan nama pengguna
-          } else {
-            echo "User";
-          }
-          ?>
-        </p>
-      </div>
-    </li>
-    <!-- Tombol Logout -->
-    <li><a class="dropdown-item" href="logout.php">Logout</a></li>
-  </div>
-</ul>
-
-      </li>
-    </ul>
-  </div>
-</nav>
-<div class="container mt-5">
-    <h1 class="page-title text-center mb-3">Tambah Pengguna</h1>
-
-    <!-- Form untuk menambah pengguna -->
-    <form method="POST">
-        <div class="mb-3">
-            <label for="nama" class="form-label">Nama</label>
-            <input type="text" class="form-control" id="nama" name="nama" required>
+            <!-- Navbar Header -->
+            <nav class="navbar navbar-header navbar-expand-lg border-bottom">
+                <div class="container-fluid px-3">
+                    <!-- Logo dan Teks -->
+                    <a class="navbar-brand d-flex align-items-center" href="index.php">
+                        <img src="img/logosultra.png" alt="Logo Sultra" class="d-inline-block me-3">
+                        <span>SEKRETARIAT DPRD PROVINSI<br>SULAWESI TENGGARA</span>
+                    </a>
+                    <!-- Navbar Item -->
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav ms-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="index.php">
+                                    <i class="fas fa-home"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="profile.php">
+                                    <i class="fas fa-user"></i> Profil
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="logout.php">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+            <!-- End Navbar -->
         </div>
 
-        <div class="mb-3">
-            <label for="nip" class="form-label">NIP</label>
-            <input type="text" class="form-control" id="nip" name="nip" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="jabatan" class="form-label">Jabatan</label>
-            <input type="text" class="form-control" id="jabatan" name="jabatan" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="peran" class="form-label">Peran</label>
-            <select class="form-select" id="peran" name="peran" required>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" name="password" required>
-        </div>
-
-        <button type="submit" class="btn btn-success">Tambah Pengguna</button>
-        <a href="manajemenpengguna.php" class="btn btn-secondary">Batal</a>
-    </form>
+        <!-- Page Content -->
+        <div class="container-fluid">
+            <h2 class="page-title">
+                <i class="fas fa-user-plus me-2"></i> Tambah Pengguna Baru
+            </h2>
+            
+            <!-- Alert Message -->
+            <?php if($msg != ''): ?>
+                <div class="alert <?php echo $msgClass; ?>">
+                    <i class="fas <?php echo ($msgClass == 'alert-success') ? 'fa-check-circle' : 'fa-exclamation-circle'; ?> me-2"></i>
+                    <?php echo $msg; ?>
+                </div>
+            <?php endif; ?>
+            
+            <div class="form-section">
+                <div class="mb-4">
+                    <h4 class="text-primary fw-bold mb-3">
+                        <i class="fas fa-id-card me-2"></i>
+                        Informasi Pengguna
+                    </h4>
+                    <p class="text-muted">Lengkapi data pengguna baru dengan benar</p>
+                </div>
+                
+                <form method="POST" action="">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="nama" class="form-label">
+                                    <i class="fas fa-user me-1"></i> Nama Lengkap
+                                </label>
+                                <input type="text" class="form-control" id="nama" name="nama" placeholder="Masukkan nama lengkap">
+                                <small class="text-muted">Nama ini akan digunakan untuk login</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="nip" class="form-label">
+                                    <i class="fas fa-id-badge me-1"></i> NIP
+                                </label>
+                                <input type="text" class="form-control" id="nip" name="nip" placeholder="Masukkan NIP">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="jabatan" class="form-label">
+                                    <i class="fas fa-briefcase me-1"></i> Jabatan
+                                </label>
+                                <input type="text" class="form-control" id="jabatan" name="jabatan" placeholder="Masukkan jabatan">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="peran" class="form-label">
+                                    <i class="fas fa-user-tag me-1"></i> Peran
+                                </label>
+                                <select class="form-select" id="peran" name="peran">
+                                    <option value="" selected disabled>Pilih peran pengguna</option>
+                                    <option value="user">User</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="password" class="form-label">
+                                    <i class="fas fa-lock me-1"></i> Password
+                                </label>
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Masukkan password">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="confirm_password" class="form-label">
+                                    <i class="fas fa-lock me-1"></i> Konfirmasi Password
+                                </label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Konfirmasi password">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Simpan Pengguna
+                        </button>
+                        <a href="manajemenpengguna.php" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Kembali
+                        </a>
+                    </div>
+                    <div id="customAlert" class="alert alert-danger" style="display: none;">
+    <i class="fas fa-exclamation-circle me-2"></i>
+    <span id="alertMessage"></span>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
-
+                </form>
+            </div>
         </div>
       </div>
-      <!-- End Custom template -->
     </div>
+
     <!--   Core JS Files   -->
     <script src="assets/js/core/jquery-3.7.1.min.js"></script>
     <script src="assets/js/core/popper.min.js"></script>
     <script src="assets/js/core/bootstrap.min.js"></script>
-
-    <!-- jQuery Scrollbar -->
     <script src="assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js"></script>
-
-    <!-- Chart JS -->
-    <script src="assets/js/plugin/chart.js/chart.min.js"></script>
-
-    <!-- jQuery Sparkline -->
-    <script src="assets/js/plugin/jquery.sparkline/jquery.sparkline.min.js"></script>
-
-    <!-- Chart Circle -->
-    <script src="assets/js/plugin/chart-circle/circles.min.js"></script>
-
-    <!-- Datatables -->
-    <script src="assets/js/plugin/datatables/datatables.min.js"></script>
-
-    <!-- Bootstrap Notify -->
-    <script src="assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js"></script>
-
-    <!-- jQuery Vector Maps -->
-    <script src="assets/js/plugin/jsvectormap/jsvectormap.min.js"></script>
-    <script src="assets/js/plugin/jsvectormap/world.js"></script>
-
-    <!-- Sweet Alert -->
-    <script src="assets/js/plugin/sweetalert/sweetalert.min.js"></script>
-
-    <!-- Kaiadmin JS -->
     <script src="assets/js/kaiadmin.min.js"></script>
-
-    <!-- Kaiadmin DEMO methods, don't include it in your project! -->
-    <script src="assets/js/setting-demo.js"></script>
-    
-  <script>// Show the Add User form (Modal)
-function showAddUserForm() {
-    document.getElementById("addUserFormModal").style.display = "block";
-}
-
-// Hide the Add User form (Modal)
-function hideAddUserForm() {
-    document.getElementById("addUserFormModal").style.display = "none";
-}</script>
     <script>
-      $("#lineChart").sparkline([102, 109, 120, 99, 110, 105, 115], {
-        type: "line",
-        height: "70",
-        width: "100%",
-        lineWidth: "2",
-        lineColor: "#177dff",
-        fillColor: "rgba(23, 125, 255, 0.14)",
-      });
-
-      $("#lineChart2").sparkline([99, 125, 122, 105, 110, 124, 115], {
-        type: "line",
-        height: "70",
-        width: "100%",
-        lineWidth: "2",
-        lineColor: "#f3545d",
-        fillColor: "rgba(243, 84, 93, .14)",
-      });
-
-      $("#lineChart3").sparkline([105, 103, 123, 100, 95, 105, 115], {
-        type: "line",
-        height: "70",
-        width: "100%",
-        lineWidth: "2",
-        lineColor: "#ffa534",
-        fillColor: "rgba(255, 165, 52, .14)",
-      });
+        // Form validation
+        $(document).ready(function(){
+            $('form').on('submit', function(e){
+                let valid = true;
+                
+                // Check required fields
+                $(this).find('input, select').each(function(){
+                    if($(this).attr('id') !== 'confirm_password' && ($(this).val() === '' || $(this).val() === null)){
+                        $(this).addClass('is-invalid');
+                        valid = false;
+                    } else {
+                        $(this).removeClass('is-invalid').addClass('is-valid');
+                    }
+                });
+                
+                // Check password confirmation
+                const password = $('#password').val();
+                const confirmPassword = $('#confirm_password').val();
+                
+                if(password !== confirmPassword) {
+                    $('#confirm_password').addClass('is-invalid');
+                    alert('Password dan konfirmasi password tidak cocok');
+                    valid = false;
+                }
+                
+                // Prevent form submission if validation fails
+                if(!valid){
+                    e.preventDefault();
+                    alert('Mohon lengkapi semua field yang diperlukan');
+                }
+            });
+            
+            // Remove validation classes on input
+            $('input, select').on('focus', function(){
+                $(this).removeClass('is-invalid');
+            });
+        });
     </script>
   </body>
 </html>
-<?php
-// Menutup koneksi database
-$conn->close();
-?>

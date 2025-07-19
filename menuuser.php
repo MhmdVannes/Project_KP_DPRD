@@ -1,23 +1,32 @@
 <?php
-ob_start();
-session_start();
+include 'session_check.php';
+include 'koneksi.php';
 
-// Cek apakah user sudah login
-if (!isset($_SESSION['user_id'])) {
-    // Redirect ke halaman login jika belum login
+// Get ID from URL or session
+$id_user = isset($_GET['id_user']) ? intval($_GET['id_user']) : $_SESSION['id_user'];
+
+// Check if user is logged in and has the correct role
+if (!isset($_SESSION['id_user']) || !isset($_SESSION['peran']) || $_SESSION['peran'] !== 'user') {
     header("Location: login.php");
     exit();
 }
 
-// Cek role user
-if ($_SESSION['peran'] !== 'user') {
-    header("Location: index.php");
+// For security, verify the URL id_user matches the session id_user
+if ($id_user != $_SESSION['id_user']) {
+    // If not matching, redirect to the correct URL
+    header("Location: menuuser.php?id_user=" . $_SESSION['id_user']);
     exit();
 }
 
-// Include koneksi database
-include('koneksi.php');
+// Get user details from database
+$query = "SELECT * FROM tb_user WHERE id_user = ?";
+$stmt = mysqli_prepare($conn, $query);
+mysqli_stmt_bind_param($stmt, 'i', $id_user);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+$user_data = mysqli_fetch_assoc($result);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -157,7 +166,6 @@ include('koneksi.php');
         <!-- Page Header -->
         <div class="page-header">
           <h1 class="page-title">Selamat Datang, <?php echo $_SESSION['nama']; ?></h1>
-          <p class="page-subtitle">Dashboard Analisis Jabatan DPRD Sulawesi Tenggara</p>
         </div>
 
         <div class="row">
@@ -169,24 +177,49 @@ include('koneksi.php');
             </div>
           </div>
 
-          <!-- Info Cards -->
-          <div class="col-md-8">
-            <div class="row">
-              <div class="col-md-6">
-                <div class="info-card">
-                  <h5>Jabatan Saat Ini</h5>
-                  <p><?php echo $_SESSION['jabatan'] ?? 'Belum diatur'; ?></p>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="info-card">
-                  <h5>NIP</h5>
-                  <p><?php echo $_SESSION['nip'] ?? 'Belum diatur'; ?></p>
-                </div>
-              </div>
+          <?php
+// Ambil NIP dan Jabatan dari database berdasarkan session atau kriteria yang relevan
+$id_user = $_SESSION['id_user']; // Pastikan session 'user_id' ada untuk identifikasi user, jika diperlukan
+
+// Query untuk mengambil jabatan dan nip berdasarkan user_id
+$sql = "SELECT jabatan, nip FROM tb_user WHERE id_user = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $id_user); // Mengikat parameter user_id
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Menampilkan data jika ditemukan
+if ($result->num_rows > 0) {
+    // Ambil data dari hasil query
+    $row = $result->fetch_assoc();
+    $jabatan = $row['jabatan'];
+    $nip = $row['nip'];
+} else {
+    $jabatan = 'Belum diatur'; // Jika tidak ditemukan data, tampilkan pesan default
+    $nip = 'Belum diatur'; // Jika tidak ditemukan data, tampilkan pesan default
+}
+
+$stmt->close();
+?>
+
+<!-- Info Cards -->
+<div class="col-md-8">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="info-card">
+                <h5>Jabatan Saat Ini</h5>
+                <p><?php echo $jabatan; ?></p>
             </div>
-          </div>
         </div>
+        <div class="col-md-6">
+            <div class="info-card">
+                <h5>NIP</h5>
+                <p><?php echo $nip; ?></p>
+            </div>
+        </div>
+    </div>
+</div>
+
 
         <!-- Main Content Section -->
         <div class="row mt-4">
@@ -204,19 +237,34 @@ include('koneksi.php');
             </div>
           </div>
 
-          <div class="col-md-4">
-            <div class="info-card">
-              <h5>Aktivitas Terakhir</h5>
-              <ul class="activity-list">
-                <li class="activity-item">
-                  <div class="d-flex justify-content-between">
+<?php
+// Set zona waktu ke Sulawesi Tenggara (WITA)
+date_default_timezone_set('Asia/Makassar'); // WITA (Waktu Indonesia Tengah)
+
+// Cek apakah waktu login sudah diset di session
+if (!isset($_SESSION['waktu_login'])) {
+    // Jika belum diset, simpan waktu login saat pertama kali
+    $_SESSION['waktu_login'] = date('H:i');
+}
+
+// Ambil waktu login dari session
+$waktu_login = $_SESSION['waktu_login'];
+?>
+
+<div class="col-md-4">
+    <div class="info-card">
+        <h5>Aktivitas Terakhir</h5>
+        <ul class="activity-list">
+            <li class="activity-item">
+                <div class="d-flex justify-content-between">
                     <span>Login ke sistem</span>
-                    <span class="activity-time"><?php echo date('H:i'); ?></span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
+                    <span class="activity-time"><?php echo $waktu_login; ?></span>
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>
+
         </div>
       </div>
     </div>
@@ -229,4 +277,3 @@ include('koneksi.php');
     <script src="assets/js/kaiadmin.min.js"></script>
   </body>
 </html>
-<?php ob_end_flush(); ?>

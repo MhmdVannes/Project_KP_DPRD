@@ -1,405 +1,255 @@
 <?php
-session_start(); // Mulai sesi
+include 'session_check.php';
+include 'koneksi.php';
 
-// Termasuk file koneksi ke database
-include('koneksi.php');
+// Redirect jika sudah login
+if (isset($_SESSION['id_user']) && isset($_SESSION['peran'])) {
+    if ($_SESSION['peran'] == 'admin') {
+        header("Location: index.php");
+    } else {
+        header("Location: menuuser.php");
+    }
+    exit();
+}
 
-// Inisialisasi variabel error message
-$error_message = "";
+// Inisialisasi variabel
+$error = '';
 
-// Menangani saat form login dikirimkan
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Pastikan input ada di $_POST sebelum mengaksesnya
-    if (isset($_POST['nip']) && isset($_POST['password'])) {
-        $nip = mysqli_real_escape_string($conn, $_POST['nip']); // NIP yang dimasukkan
-        $enteredPassword = mysqli_real_escape_string($conn, $_POST['password']); // Password yang dimasukkan
+// Proses login ketika form dikirim
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Pastikan nip dan password dikirim
+    if (!empty($_POST['nip']) && !empty($_POST['password'])) {
+        $nip = mysqli_real_escape_string($conn, $_POST['nip']);
+        $password = $_POST['password'];
 
-        // Query untuk mengambil data pengguna berdasarkan NIP
-        $sql = "SELECT * FROM users WHERE nip = '$nip'";
-        $result = $conn->query($sql);
-        
-        if ($result && $result->num_rows > 0) {
-            $user = $result->fetch_assoc();
-            
-            // Cek apakah password menggunakan MD5 atau password_hash
-            if (md5($enteredPassword) === $user['password'] || 
-                (strlen($user['password']) > 32 && password_verify($enteredPassword, $user['password']))) {
-                // Jika password cocok, simpan data pengguna di sesi
-                $_SESSION['user_id'] = $user['id'];
+        // Query untuk mengambil data user berdasarkan NIP
+        $query = "SELECT id_user, nama, peran, password FROM tb_user WHERE nip = ?";
+        $stmt = mysqli_prepare($conn, $query);
+        mysqli_stmt_bind_param($stmt, 's', $nip);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        // Cek apakah user ditemukan
+        if ($result && mysqli_num_rows($result) > 0) {
+            $user = mysqli_fetch_assoc($result);
+
+            // Jika password di database masih dalam teks biasa (belum di-hash), gunakan langsung perbandingan sederhana
+            if (password_verify($password, $user['password']) || $password === $user['password']) {
+                // Set session untuk user yang berhasil login
+                $_SESSION['id_user'] = $user['id_user'];
                 $_SESSION['nama'] = $user['nama'];
-                $_SESSION['nip'] = $user['nip'];
                 $_SESSION['peran'] = $user['peran'];
 
-                // Mengarahkan pengguna ke halaman yang sesuai berdasarkan perannya
-                if ($user['peran'] == 'admin') {
+                // Redirect berdasarkan peran
+                if ($user['peran'] === 'admin') {
                     header("Location: index.php");
                 } else {
                     header("Location: menuuser.php");
                 }
                 exit();
             } else {
-                $error_message = "NIP atau password salah!";
+                $error = "Password yang Anda masukkan salah!";
             }
         } else {
-            $error_message = "NIP atau password salah!";
+            $error = "NIP tidak ditemukan!";
         }
     } else {
-        $error_message = "Harap isi semua form!";
+        $error = "Harap masukkan NIP dan password!";
     }
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sekretariat Dewan Perwakilan Rakyat Daerah Provinsi Sulawesi Tenggara</title>
-    <meta content="width=device-width, initial-scale=1.0, shrink-to-fit=no" name="viewport"/>
-    <link rel="icon" href="img/logosultra.png" type="image/x-icon"/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Login - Sekretariat DPRD Provinsi Sulawesi Tenggara</title>
+    <link rel="icon" href="img/logosultra.png" type="image/x-icon">
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-family: 'Poppins', sans-serif;
         }
-
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+            width: 900px;
+            max-width: 90%;
+            transition: all 0.3s ease;
         }
-
-        .page-container {
-            position: relative;
-            width: 100%;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .login-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
         }
-
-        .header {
-            position: absolute;
-            top: 30px;
-            left: 50%;
-            transform: translateX(-50%);
+        .login-row {
+            display: flex;
+            min-height: 500px;
+        }
+        .login-image {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                        url('img/dprd.jpg');
+            background-size: cover;
+            background-position: center;
             display: flex;
             flex-direction: column;
+            justify-content: center;
             align-items: center;
+            padding: 30px;
+            flex: 1;
+            color: white;
             text-align: center;
-            width: 100%;
-            padding: 0 20px;
         }
-
-        .logo-container {
+        .login-form {
+            padding: 40px;
+            flex: 1;
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .login-logo {
+            width: 120px;
             margin-bottom: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px 30px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
         }
-
-        .logo {
-            width: 100px;
-            height: 100px;
-            background-color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 20px;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-            border: 5px solid rgba(255, 255, 255, 0.9);
-            transition: transform 0.3s ease;
-        }
-
-        .logo:hover {
-            transform: scale(1.05);
-        }
-
-        .logo img {
-            max-width: 60px;
-            max-height: 60px;
-        }
-
-        .header-text {
-            color: white;
-        }
-
-        .header-text h3 {
-            font-size: 2.2rem;
-            margin-bottom: 5px;
+        .login-title {
             font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px;
+            color: #1a237e;
         }
-
-        .header-text p {
-            font-size: 1.1rem;
-            font-weight: 500;
-            opacity: 0.9;
+        .login-subtitle {
+            margin-bottom: 40px;
+            color: #64748b;
         }
-
-        .wrapper {
-            width: 420px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 24px;
-            padding: 50px 40px;
-            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            margin-top: 180px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .wrapper:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.3);
-        }
-
-        h2 {
-            color: #1a365d;
-            margin-bottom: 30px;
-            font-size: 2.2rem;
-            font-weight: 600;
-            text-align: center;
-            position: relative;
-            padding-bottom: 10px;
-        }
-
-        h2::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 50px;
-            height: 3px;
-            background: linear-gradient(to right, #667eea, #764ba2);
-            border-radius: 2px;
-        }
-
-        .input-field {
-            position: relative;
-            margin: 25px 0;
-        }
-
-        .input-field i {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            left: 15px;
-            color: #718096;
-            font-size: 18px;
-            transition: all 0.3s ease;
-        }
-
-        .input-field input {
-            width: 100%;
-            height: 55px;
+        .form-control {
             border: 2px solid #e2e8f0;
-            border-radius: 15px;
-            padding: 0 45px;
-            font-size: 16px;
-            color: #2d3748;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.9);
-        }
-
-        .input-field label {
-            position: absolute;
-            top: 50%;
-            left: 45px;
-            transform: translateY(-50%);
-            color: #718096;
-            font-size: 15px;
-            transition: all 0.3s ease;
-            pointer-events: none;
-            background: white;
-            padding: 0 5px;
-        }
-
-        .input-field input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
-        }
-
-        .input-field input:focus ~ label,
-        .input-field input:not(:placeholder-shown) ~ label {
-            top: -10px;
-            left: 15px;
-            font-size: 13px;
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        .input-field input:focus ~ i {
-            color: #667eea;
-        }
-
-        button {
-            width: 100%;
-            height: 55px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 15px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 30px;
-            letter-spacing: 0.5px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                120deg,
-                transparent,
-                rgba(255, 255, 255, 0.2),
-                transparent
-            );
-            transition: 0.5s;
-        }
-
-        button:hover::before {
-            left: 100%;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .error-message {
-            color: #e53e3e;
-            background-color: #fff5f5;
-            border: 1px solid #fed7d7;
             border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 25px;
-            font-size: 14px;
-            text-align: center;
-            font-weight: 500;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            width: 100%; /* Ensure full width */
+        }
+        .form-control:focus {
+            border-color: #1a237e;
+            box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+        }
+        .login-btn {
+            background: #1a237e;
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%; /* Ensure full width */
+            margin: 0 auto; /* Center the button */
+            display: block; /* Make it block to respect width */
+        }
+        .login-btn:hover {
+            background: #283593;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(26, 35, 126, 0.2);
+        }
+        .error-message {
+            color: #dc2626;
+            background-color: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        /* Fix for input groups */
+        .input-group {
+            width: 100%;
+            display: flex;
+            align-items: stretch;
+        }
+        .input-group-text {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
+            padding: 0.375rem 0.75rem;
+            border-radius: 12px 0 0 12px;
+            border: 2px solid #e2e8f0;
+            border-right: none;
         }
-
-        .error-message::before {
-            content: '\f071';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            color: #e53e3e;
+        .input-group .form-control {
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 0;
         }
-
-        @media (max-width: 768px) {
-            .header {
-                position: relative;
-                top: 0;
-                margin-bottom: 30px;
-            }
-
-            .wrapper {
-                width: 90%;
-                max-width: 420px;
-                margin-top: 0;
-                padding: 35px 25px;
-            }
-
-            .logo-container {
-                padding: 10px 20px;
-            }
-
-            .logo {
-                width: 80px;
-                height: 80px;
-            }
-
-            .logo img {
-                max-width: 45px;
-                max-height: 45px;
-            }
-
-            .header-text h3 {
-                font-size: 1.8rem;
-            }
-
-            .header-text p {
-                font-size: 1rem;
-            }
-
-            h2 {
-                font-size: 2rem;
-            }
-
-            .input-field input {
-                height: 50px;
-            }
-
-            button {
-                height: 50px;
+        .form-label {
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .mb-3, .mb-4 {
+            margin-bottom: 1.5rem !important;
+            width: 100%;
+        }
+        form {
+            width: 100%;
+        }
+        @media (max-width: 767px) {
+            .login-image {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <div class="page-container">
-        <div class="header">
-            <div class="logo-container">
-                <div class="logo">
-                    <img src="img/logosultra.png" alt="Logo Sulawesi Tenggara">
+<div class="login-container">
+        <div class="login-row">
+            <div class="login-image">
+                <img src="img/logosultra.png" alt="Logo" class="login-logo">
+                <h3>Sekretariat DPRD Provinsi Sulawesi Tenggara</h3>
+                <p>Sistem Analisis Jabatan (Anjab) </p>
+            </div>
+            <div class="login-form">
+                <div class="text-center mb-4">
+                    <img src="img/logosultra.png" alt="Logo" width="80">
+                    <h4 class="login-title mt-3">Selamat Datang</h4>
+                    <p class="login-subtitle">Silakan login untuk melanjutkan</p>
                 </div>
-                <div class="header-text">
-                    <h3>Sekretariat Daerah</h3>
-                    <p>Provinsi Sulawesi Tenggara</p>
+                
+                <?php if (!empty($error)): ?>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <?php echo $error; ?>
                 </div>
+                <?php endif; ?>
+                
+                <form method="POST" action="">
+                    <div class="mb-3">
+                        <label for="username" class="form-label fw-bold">Nip</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="fas fa-user text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-start-0" id="nip" name="nip" placeholder="Masukkan nip" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label fw-bold">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="fas fa-lock text-muted"></i>
+                            </span>
+                            <input type="password" class="form-control border-start-0" id="password" name="password" placeholder="Masukkan password" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn login-btn text-white">
+                        <i class="fas fa-sign-in-alt me-2"></i> Login
+                    </button>
+                </form>
             </div>
         </div>
-        
-        <div class="wrapper">
-            <form action="login.php" method="POST">
-                <h2>Login</h2>
-
-                <!-- Menampilkan pesan error jika ada -->
-                <?php if (!empty($error_message)) { ?>
-                    <div class="error-message"><?php echo $error_message; ?></div>
-                <?php } ?>
-
-                <div class="input-field">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="nip" name="nip" required placeholder=" ">
-                    <label>Enter Username (NIP)</label>
-                </div>
-                <div class="input-field">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="password" name="password" required placeholder=" ">
-                    <label>Enter Password</label>
-                </div>
-                <button type="submit">Log In</button>
-            </form>
-        </div>
     </div>
+
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

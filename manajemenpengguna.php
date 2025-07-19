@@ -1,8 +1,8 @@
 <?php
-session_start();
+include 'session_check.php';
 
 // Cek apakah user sudah login
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['id_user'])) {
     header("Location: login.php");
     exit();
 }
@@ -16,7 +16,7 @@ $roleFilter = isset($_GET['role']) ? $_GET['role'] : 'all';
 $statusFilter = isset($_GET['status']) ? $_GET['status'] : 'all';
 
 // Query untuk mengambil data pengguna sesuai filter
-$sql = "SELECT * FROM users WHERE 1=1";
+$sql = "SELECT * FROM tb_user WHERE 1=1";
 
 if (!empty($searchTerm)) {
     $sql .= " AND (nama LIKE '%$searchTerm%' OR nip LIKE '%$searchTerm%' OR jabatan LIKE '%$searchTerm%')";
@@ -31,8 +31,8 @@ $result = $conn->query($sql);
 
 // Hitung total pengguna
 $totalUsers = $result->num_rows;
-$totalAdmin = $conn->query("SELECT COUNT(*) as count FROM users WHERE peran = 'admin'")->fetch_assoc()['count'];
-$totalStaff = $conn->query("SELECT COUNT(*) as count FROM users WHERE peran = 'user'")->fetch_assoc()['count'];
+$totalAdmin = $conn->query("SELECT COUNT(*) as count FROM tb_user WHERE peran = 'admin'")->fetch_assoc()['count'];
+$totalStaff = $conn->query("SELECT COUNT(*) as count FROM tb_user WHERE peran = 'user'")->fetch_assoc()['count'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -480,38 +480,6 @@ $totalStaff = $conn->query("SELECT COUNT(*) as count FROM users WHERE peran = 'u
                         <span style="font-weight: 1000; color:rgb(3, 36, 71);">SEKRETARIAT DEWAN PERWAKILAN RAKYAT DAERAH PROVINSI SULAWESI TENGGARA</span>
                     </a>
                     <!-- Navbar Item -->
-                    <ul class="navbar-nav ms-md-auto align-items-center">
-                        <!-- Profile User Dropdown -->
-                        <li class="nav-item topbar-user dropdown hidden-caret">
-                            <a class="dropdown-toggle profile-pic" data-bs-toggle="dropdown" href="#" aria-expanded="false">
-                                <!-- Flexbox untuk menempatkan ikon avatar dan nama pengguna -->
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar-sm me-2">
-                                        <i class="fas fa-user-circle fa-2x"></i>
-                                    </div>
-                                </div>
-                            </a>
-                            <!-- Dropdown menu untuk profile -->
-                            <ul class="dropdown-menu dropdown-user animated fadeIn">
-                                <div class="dropdown-user-scroll scrollbar-outer">
-                                    <li class="dropdown-item">
-                                        <div class="account-info">
-                                            <p class="account-name fw-bold">
-                                                <?php 
-                                                if(isset($_SESSION['nama'])) {
-                                                    echo $_SESSION['nama'];
-                                                } else {
-                                                    echo "User";
-                                                }
-                                                ?>
-                                            </p>
-                                        </div>
-                                    </li>
-                                    <li><a class="dropdown-item" href="logout.php">Logout</a></li>
-                                </div>
-                            </ul>
-                        </li>
-                    </ul>
                 </div>
             </nav>
             <!-- End Navbar -->
@@ -554,162 +522,52 @@ $totalStaff = $conn->query("SELECT COUNT(*) as count FROM users WHERE peran = 'u
             </div>
         </div>
 
-        <!-- Search and Filter Section -->
-        <div class="search-section">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">Daftar Pengguna</h4>
-                <a href="tambah_pengguna.php" class="btn btn-primary">
-                    <i class="fas fa-plus me-2"></i>Tambah Pengguna
-                </a>
-            </div>
-            <form method="GET" class="row g-3">
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <span class="input-group-text bg-transparent border-end-0">
-                            <i class="fas fa-search text-gray-400"></i>
-                        </span>
-                        <input type="text" name="search" class="form-control search-input border-start-0" 
-                               placeholder="Cari berdasarkan nama, NIP, atau jabatan..." 
-                               value="<?php echo htmlspecialchars($searchTerm); ?>">
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <select name="role" class="form-select">
-                        <option value="all" <?php echo $roleFilter == 'all' ? 'selected' : ''; ?>>Semua Peran</option>
-                        <option value="admin" <?php echo $roleFilter == 'admin' ? 'selected' : ''; ?>>Admin</option>
-                        <option value="user" <?php echo $roleFilter == 'user' ? 'selected' : ''; ?>>User</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-filter w-100">
-                        <i class="fas fa-filter me-2"></i>Filter
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Table Section -->
-        <div class="table-section">
-            <div class="table-responsive">
-                <table class="table custom-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 5%">No.</th>
-                            <th style="width: 25%">Nama</th>
-                            <th style="width: 20%">NIP</th>
-                            <th style="width: 20%">Jabatan</th>
-                            <th style="width: 15%">Peran</th>
-                            <th style="width: 15%">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        if ($result->num_rows > 0) {
-                            $no = 1;
-                            while ($row = $result->fetch_assoc()) {
-                                echo '<tr>
-                                        <td>' . $no . '</td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="avatar-sm me-3">
-                                                    <i class="fas fa-user-circle fa-2x"></i>
-                                                </div>
-                                                <div>
-                                                    <div class="fw-bold text-dark">' . htmlspecialchars($row['nama']) . '</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>' . htmlspecialchars($row['nip']) . '</td>
-                                        <td>' . htmlspecialchars($row['jabatan']) . '</td>
-                                        <td>
-                                            <span class="badge ' . ($row['peran'] == 'admin' ? 'badge-admin' : 'badge-user') . '">
-                                                ' . ucfirst(htmlspecialchars($row['peran'])) . '
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="flex space-x-3">
-                                                <a href="edit_pengguna.php?id=' . $row['id'] . '" 
-                                                   class="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors duration-200">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <a href="javascript:void(0);" onclick="showDeleteConfirmation(' . $row['id'] . ')" 
-                                                   class="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors duration-200">
-                                                    <i class="fas fa-trash"></i>
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>';
-                                $no++;
-                            }
-                        } else {
-                            echo '<tr><td colspan="6" class="text-center py-4">Tidak ada data pengguna yang ditemukan.</td></tr>';
-                        }
-                        ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add Modal HTML before closing body tag -->
-    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-body text-center p-4">
-                    <div class="mb-4">
-                        <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
-                    </div>
-                    <h3 class="mb-3">Berhasil Hapus</h3>
-                    <p class="mb-4">Data pengguna berhasil dihapus dari sistem</p>
-                    <button type="button" class="btn btn-primary px-4" onclick="window.location.href='manajemenpengguna.php'">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-body text-center p-4">
-                    <div class="mb-4">
-                        <i class="fas fa-exclamation-circle text-warning" style="font-size: 4rem; color: #f59e0b;"></i>
-                    </div>
-                    <h3 class="mb-3">Konfirmasi Hapus</h3>
-                    <p class="mb-4">Apakah Anda yakin ingin menghapus pengguna ini?</p>
-                    <div class="d-flex justify-content-center gap-2">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Batal</button>
-                        <button type="button" class="btn btn-danger px-4" id="confirmDelete">Hapus</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add this script before closing body tag -->
-    <script>
-        let deleteUrl = '';
-
-        function showDeleteConfirmation(id) {
-            deleteUrl = 'hapus_pengguna.php?id=' + id;
-            var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-            deleteModal.show();
+        <!-- Example code for user listing table with action buttons -->
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Nama</th>
+            <th>NIP</th>
+            <th>Jabatan</th>
+            <th>Peran</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php 
+        // Query untuk mendapatkan semua pengguna
+        $sql = "SELECT * FROM tb_user";
+        $result = $conn->query($sql);
+        
+        if ($result->num_rows > 0) {
+            while($row = $result->fetch_assoc()) {
+        ?>
+            <tr>
+                <td><?php echo $row['nama']; ?></td>
+                <td><?php echo $row['nip']; ?></td>
+                <td><?php echo $row['jabatan']; ?></td>
+                <td><?php echo $row['peran']; ?></td>
+                <td>
+                    <a href="edit_pengguna.php?id=<?php echo $row['id_user']; ?>" class="btn btn-sm btn-primary">Edit</a>
+                    <a href="hapus_pengguna.php?id=<?php echo $row['id_user']; ?>" class="btn btn-sm btn-danger">Hapus</a>
+                </td>
+            </tr>
+        <?php 
+            }
+        } else {
+            echo "<tr><td colspan='5' class='text-center'>Tidak ada data pengguna</td></tr>";
         }
+        ?>
+    </tbody>
+</table>
 
-        document.getElementById('confirmDelete').addEventListener('click', function() {
-            fetch(deleteUrl)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        var deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-                        deleteModal.hide();
-                        var successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                        successModal.show();
-                    }
-                });
-        });
-    </script>
+<!-- Button to add new user -->
+<!-- Button to add new user -->
+<div class="mb-4">
+    <a href="tambahpengguna.php" class="btn btn-success">
+        <i class="fas fa-user-plus me-1"></i> Tambah Pengguna Baru
+    </a>
+</div>
 
     <!--   Core JS Files   -->
     <script src="assets/js/core/jquery-3.7.1.min.js"></script>

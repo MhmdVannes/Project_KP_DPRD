@@ -1,5 +1,5 @@
 <?php
-session_start();
+include 'session_check.php';
 
 // Hapus semua data session
 $_SESSION = array();

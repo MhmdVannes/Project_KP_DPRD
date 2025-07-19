@@ -1,13 +1,26 @@
 <?php
-session_start();
+include 'koneksi.php';
+include 'session_check.php';
 
-// Cek apakah user sudah login
-if (!isset($_SESSION['user_id'])) {
-    // Redirect ke halaman login jika belum login
+// Get ID from URL or session
+$id_user = isset($_GET['id_user']) ? intval($_GET['id_user']) : $_SESSION['id_user'];
+
+// Check if user is logged in and has the correct role
+if (!isset($_SESSION['id_user']) || !isset($_SESSION['peran']) || $_SESSION['peran'] !== 'admin') {
     header("Location: login.php");
     exit();
 }
-?><!DOCTYPE html>
+
+// For security, verify the URL id_user matches the session id_user
+if ($id_user != $_SESSION['id_user']) {
+    // If not matching, redirect to the correct URL
+    header("Location: index.php?id_user=" . $_SESSION['id_user']);
+    exit();
+}
+?>
+
+
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -148,56 +161,6 @@ if (!isset($_SESSION['user_id'])) {
       <img src="img/logosultra.png" alt="SIASN Logo" class="d-inline-block me-2" style="height: 50px; max-height: 50px;">
       <span style="font-weight: 1000; color:rgb(3, 36, 71);">SEKRETARIAT DEWAN PERWAKILAN RAKYAT DAERAH  SULAWESI TENGGARA</span>
     </a>
-    <!-- Navbar Item -->
-    <ul class="navbar-nav ms-md-auto align-items-center">
-      <!-- Tombol Pencarian (untuk tampilan mobile) -->
-      <li class="nav-item topbar-icon dropdown hidden-caret d-flex d-lg-none">
-        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false" aria-haspopup="true">
-          <i class="fa fa-search"></i>
-        </a>
-        <ul class="dropdown-menu dropdown-search animated fadeIn">
-          <form class="navbar-left navbar-form nav-search">
-            <div class="input-group">
-              <input type="text" placeholder="Search ..." class="form-control" />
-            </div>
-          </form>
-        </ul>
-      </li>
-      
-      <!-- Profile User Dropdown -->
-      <li class="nav-item topbar-user dropdown hidden-caret">
-        <a class="dropdown-toggle profile-pic" data-bs-toggle="dropdown" href="#" aria-expanded="false">
-          <!-- Flexbox untuk menempatkan ikon avatar dan nama pengguna -->
-          <div class="d-flex align-items-center">
-            <div class="avatar-sm me-2">
-              <i class="fas fa-user-circle fa-2x"></i> <!-- Ikon pengguna -->
-            </div>
-          </div>
-        </a>
-        <!-- Dropdown menu untuk profile -->
-        <ul class="dropdown-menu dropdown-user animated fadeIn">
-  <div class="dropdown-user-scroll scrollbar-outer">
-    <!-- Informasi Akun: Nama dan NIP -->
-    <li class="dropdown-item">
-      <div class="account-info">
-        <p class="account-name fw-bold">
-          <?php 
-          if(isset($_SESSION['nama'])) {
-            echo $_SESSION['nama']; // Menampilkan nama pengguna
-          } else {
-            echo "User";
-          }
-          ?>
-        </p>
-      </div>
-    </li>
-    <!-- Tombol Logout -->
-    <li><a class="dropdown-item" href="logout.php">Logout</a></li>
-  </div>
-</ul>
-
-      </li>
-    </ul>
   </div>
 </nav>
           <!-- End Navbar -->
@@ -207,59 +170,68 @@ if (!isset($_SESSION['user_id'])) {
           <!-- Page Header -->
           <div class="page-header">
             <h1 class="page-title">Dashboard</h1>
-            <p class="page-subtitle">Selamat datang di Sistem Informasi Analisis Jabatan DPRD Sulawesi Tenggara</p>
           </div>
 
-          <!-- Stats Cards -->
-          <div class="row">
-            <div class="col-sm-6 col-md-3">
-              <div class="stats-card">
-                <div class="stats-icon">
-                  <i class="fas fa-users"></i>
-                </div>
-                <div class="stats-info">
-                  <h3>1,294</h3>
-                  <p>Total Pegawai</p>
-                </div>
-              </div>
+<!-- Stats Cards --> 
+<div class="row">
+    <a href="manajemenpengguna.php" class="col-sm-6 col-md-6">
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="fas fa-users" style="color: black;"></i>
             </div>
-            <div class="col-sm-6 col-md-3">
-              <div class="stats-card">
-                <div class="stats-icon">
-                  <i class="fas fa-file-alt"></i>
-                </div>
-                <div class="stats-info">
-                  <h3>150</h3>
-                  <p>Analisis Jabatan</p>
-                </div>
-              </div>
+            <div class="stats-info">
+                <h3 style="color: black;">
+                    <?php
+                    // Query untuk menghitung jumlah user dengan peran 'user'
+                    $sql = "SELECT COUNT(*) AS total_user FROM tb_user WHERE peran = 'user'";
+                    $result = $conn->query($sql);
+                    
+                    if ($result->num_rows > 0) {
+                        $row = $result->fetch_assoc();
+                        $totalUser = $row['total_user'];
+                    } else {
+                        $totalUser = 0;
+                    }
+                    
+                    echo number_format($totalUser);
+                    ?>
+                </h3>
+                <p style="color: black;">Total Pengguna</p>
             </div>
-            <div class="col-sm-6 col-md-3">
-              <div class="stats-card">
-                <div class="stats-icon">
-                  <i class="fas fa-chart-bar"></i>
-                </div>
-                <div class="stats-info">
-                  <h3>85%</h3>
-                  <p>Tingkat Kepatuhan</p>
-                </div>
-              </div>
+        </div>
+    </a>
+    
+    <a href="hasilanalisisjabatan.php" class="col-sm-6 col-md-6">
+        <div class="stats-card">
+            <div class="stats-icon">
+                <i class="fas fa-file-alt" style="color: black;"></i>
             </div>
-            <div class="col-sm-6 col-md-3">
-              <div class="stats-card">
-                <div class="stats-icon">
-                  <i class="fas fa-tasks"></i>
-                </div>
-                <div class="stats-info">
-                  <h3>45</h3>
-                  <p>Tugas Aktif</p>
-                </div>
-              </div>
+            <div class="stats-info">
+                <h3 style="color: black;">
+                    <?php
+                    // Query untuk menghitung jumlah nama_jabatan yang sudah diinput
+                    $sql = "SELECT COUNT(nama_jabatan) AS total_jabatan FROM tb_input_jabatan WHERE nama_jabatan IS NOT NULL";
+                    $result = $conn->query($sql);
+                    
+                    if ($result->num_rows > 0) {
+                        $row = $result->fetch_assoc();
+                        $totalJabatan = $row['total_jabatan'];
+                    } else {
+                        $totalJabatan = 0;
+                    }
+                    
+                    echo number_format($totalJabatan);
+                    ?>
+                </h3>
+                <p style="color: black;">Analisis Jabatan</p>
             </div>
-          </div>
+        </div>
+    </a>
+</div>
+
 
           <!-- Charts Section -->
-          <div class="row">
+          <!-- <div class="row">
             <div class="col-md-8">
               <div class="chart-card">
                 <div class="card-header">
@@ -286,10 +258,10 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
               </div>
             </div>
-          </div>
+          </div> -->
 
           <!-- Recent Activities -->
-          <div class="row">
+          <!-- <div class="row">
             <div class="col-md-12">
               <div class="table-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -362,7 +334,7 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
               </div>
             </div>
-          </div>
+          </div> -->
         </div>
       </div>
       <!-- End Custom template -->
@@ -403,7 +375,7 @@ if (!isset($_SESSION['user_id'])) {
     <!-- Kaiadmin DEMO methods, don't include it in your project! -->
     <script src="assets/js/setting-demo.js"></script>
     <script src="assets/js/demo.js"></script>
-    <script>
+    <!-- <script>
       // Statistics Chart
       var ctx = document.getElementById('statisticsChart').getContext('2d');
       new Chart(ctx, {
@@ -456,6 +428,6 @@ if (!isset($_SESSION['user_id'])) {
           }
         }
       });
-    </script>
+    </script> -->
   </body>
 </html>
